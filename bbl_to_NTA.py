@@ -25,10 +25,9 @@ for boro in borough_abbrevs:
 
     data = pd.read_csv('./../data/nyc_pluto_15v1/{}.csv'.format(boro), index_col=None, header=0, usecols = ['BoroCode','BBL','CT2010'], dtype=str)
     data['CT2010'] = data['CT2010'].apply(recode_CT2010)
-    print data.columns
+
     joined_data = data.merge(ct_to_nta,left_on = ['BoroCode','CT2010'], right_on = ['2010_borough_code', '2010_census_tract'])
-    print joined_data.shape
-    print joined_data.columns
+
     if BBL_to_NTA is None:
         BBL_to_NTA = joined_data[['BBL', 'NTA_string']]
     else:
