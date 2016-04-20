@@ -2,16 +2,12 @@ import pandas as pd
 import numpy as np
 
 def recode_CT2010(code):
-    try:
-        if '.' not in code:
-            code += '00'
-        else:
-            code.replace('.','')
-        code = code.zfill(6)
-    except TypeError:
-    ## Note previous analysis indicated 'nan' was throwing type error
-    ## since it was non-iterable
-        return np.nan
+    code = str(code).strip()
+    if len(code) > 0 and ('.' not in code):
+        code = code + '00'
+    elif '.' in code:
+        code = code.replace('.','')
+    code = code.zfill(6)
     return code
 
 borough_abbrevs = ['BK','BX','Mn','QN','SI']
@@ -24,9 +20,15 @@ for boro in borough_abbrevs:
     print 'Getting map for borough = {}'.format(boro)
 
     data = pd.read_csv('./../data/nyc_pluto_15v1/{}.csv'.format(boro), index_col=None, header=0, usecols = ['BoroCode','BBL','CT2010'], dtype=str)
+
+    data.dropna(axis=0, subset=['CT2010'],inplace=True)
     data['CT2010'] = data['CT2010'].apply(recode_CT2010)
 
+    print 'Premerge shape for {}: '.format(boro), data.shape
+
     joined_data = data.merge(ct_to_nta,left_on = ['BoroCode','CT2010'], right_on = ['2010_borough_code', '2010_census_tract'])
+
+    print 'Postmerge shape for {}: '.format(boro), joined_data.shape
 
     if BBL_to_NTA is None:
         BBL_to_NTA = joined_data[['BBL', 'NTA_string']]
