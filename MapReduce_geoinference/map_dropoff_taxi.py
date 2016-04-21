@@ -5,7 +5,7 @@ from shapely.geometry import shape, Point
 import sys
 
 # load GeoJSON file containing sectors
-with open('NTA.geojson', 'r') as f:
+with open('/home/hadoop/shapefiles/NTA.geojson', 'r') as f:
     js = json.load(f)
 
 import sys
