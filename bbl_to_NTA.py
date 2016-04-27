@@ -26,9 +26,12 @@ for boro in borough_abbrevs:
 
     print 'Premerge shape for {}: '.format(boro), data.shape
 
+    old_nrows = float(data.shape[0])
+
     joined_data = data.merge(ct_to_nta,left_on = ['BoroCode','CT2010'], right_on = ['2010_borough_code', '2010_census_tract'])
 
     print 'Postmerge shape for {}: '.format(boro), joined_data.shape
+    print 'Proportion of records retained in merge = %.2f' % (joined_data.shape[0]/old_nrows)
 
     if BBL_to_NTA is None:
         BBL_to_NTA = joined_data[['BBL', 'NTA_string']]

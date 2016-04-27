@@ -43,7 +43,7 @@ def get_year_month(datetime_obj):
 
 
 def make_file_names():
-    years = range(2011,2014)
+    years = range(2010,2014)
     boroughs = ['bronx', 'manhattan','queens','statenisland','brooklyn']
     year_boroughs = list(itertools.product(*[years, boroughs]))
     file_names = ['{}_{}.xls'.format(year, boro) for year, boro in year_boroughs]
@@ -95,9 +95,11 @@ def get_nta_name_through_api(row, geoclient_wrapper):
 
     ###Query API
     try:
-        query_results = g.address(street_num, street_name, boro)
+        query_results = geoclient_wrapper.address(street_num, street_name, boro)
         if 'ntaName' in query_results:
-             return query_results['ntaName'], None
+             return query_results['ntaName'], 'No error'
+        else:
+            return np.NaN, 'ntaName not found'
     except Exception as e:
         return np.NaN, e.message
 
@@ -137,7 +139,7 @@ def main():
             if pd.isnull(row['NTA_string']):
                 query_results = get_nta_name_through_api(row, g)
                 merged.loc[index,'NTA_string'] = query_results[0]
-                if query_results[1] not None:
+                if query_results[1] != 'No error':
                     bad_api_calls[file][index] = query_results[1]
 
         print 'Number missing NTA_strings after API call: ', sum(merged['NTA_string'].isnull())
@@ -146,7 +148,8 @@ def main():
         ###Finally save NTA tagged data
         merged.to_csv('./../data/sales_data_nta_tagged/{}.csv'.format(file.replace('.xls','')), index=True)
 
-    json.dump(bad_api_calls, open("./../data/sales_data_nta_tagged/bad_api_calls.txt",'w'))
+    with open('./../data/sales_data_nta_tagged/bad_api_calls.json', 'w') as outfile:
+        json.dump(bad_api_calls, outfile)
 
 if __name__ == '__main__':
     main()
