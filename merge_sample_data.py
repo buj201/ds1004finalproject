@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import json
 
 def get_allowed_year_months():
     ##Construct allowed year-month keys
@@ -143,7 +144,7 @@ def merge_taxi_data(simulated_data = True):
         ##NOTE THIS IS A START TO THE ELSE BLOCK
         ##ADDITIONAL CODE NEEDED DEPENDING ON PEDROS RESULTS
 
-    ##Convert types prior to saving data
+    ##Convert types prior to returning data
     for col in merged.columns:
         if col in ['year_month', 'nta_code', 'nta_string']:
             merged[col] = merged[col].astype(str)
@@ -152,8 +153,27 @@ def merge_taxi_data(simulated_data = True):
         else:
             merged[col] = merged[col].astype(int)
 
-    merged.to_json('./../data/final_nta_month_data.json')
     return merged
 
+def nest_dict_from_df(frame):
+    return_dict = {}
+    for index, row in frame.iterrows():
+        if row['nta_code'] not in return_dict:
+            return_dict[row['nta_code']] = {}
+        values_for_inner_dict = row.drop(['nta_code','year_month']).to_dict()
+        return_dict[row['nta_code']][row['year_month']] = values_for_inner_dict
+    return return_dict
+
+def save_merged_data(simulated_data = True):
+        ##Reset index to year_month and nta_code
+
+    merged =  merge_taxi_data(simulated_data)
+
+    merged_dict = nest_dict_from_df(merged)
+
+    with open('./../data/final_nta_month_data.json', 'w') as output:
+        json.dump(merged_dict, output)
+
+
 if __name__ == '__main__':
-    merge_taxi_data(simulated_data = True)
+    save_merged_data(simulated_data = True)
