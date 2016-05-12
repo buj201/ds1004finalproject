@@ -121,28 +121,57 @@ def merge_sales_and_permits_to_base_dataframe():
 
     return merged
 
-def get_actual_taxi_data():
-    ##Finish when Pedro shares taxi data
-    return None
+
+def strip_zero_from_month(year_month):
+    '''
+    Problem: The other datasets have both YYYY-M and YYYY-MM year_months.
+    Solution: Drop leading zeros from the taxi data for merge, then add back to ensure consistent format
+    '''
+    year,month = year_month.split('-')
+    if month[0] == "0":
+        month = month[1]
+    return '-'.join([year, month])
+
+def add_zero_to_month(year_month):
+    '''
+    Add zero back in to final year_month
+    '''
+    year,month = year_month.split('-')
+    if len(month) == 1:
+        month = '0' + month
+    return '-'.join([year, month])
+
+
+def read_output_from_MR(filepath):
+    df = pd.read_csv(filepath, sep=r'[,\t]', header=None, names=['year_month', 'nta_code', 'count','trip_type'])
+
+    df['year_month'] = df['year_month'].apply(strip_zero_from_month)
+
+    pivoted = pd.pivot_table(df, index=['nta_code','year_month'], columns='trip_type', values='count')
+    pivoted.columns = pivoted.columns.get_level_values(0)
+    pivoted.reset_index(inplace=True)
+    return pivoted
+
 
 def append_simulated_taxi_data(merged):
 
     num_rows = merged.shape[0]
-    merged['taxi_pickup_count'] = np.random.randint(100,10000, size=num_rows)
-    merged['taxi_dropoff_count'] = np.random.randint(100,10000, size=num_rows)
+    merged['pickup'] = np.random.randint(100,10000, size=num_rows)
+    merged['dropoff'] = np.random.randint(100,10000, size=num_rows)
     return merged
 
-def merge_taxi_data(simulated_data = True):
+def merge_taxi_data(filepathlist, simulated_data = True):
 
     merged = merge_sales_and_permits_to_base_dataframe()
 
     if simulated_data:
         merged = append_simulated_taxi_data(merged)
     else:
-        taxi_data = get_actual_taxi_data()
+        taxi_data = get_actual_taxi_data(filepathlist)
+        print taxi_data.head()
         merged = pd.merge(merged, taxi_data, on = ['nta_code','year_month'], how='left')
-        ##NOTE THIS IS A START TO THE ELSE BLOCK
-        ##ADDITIONAL CODE NEEDED DEPENDING ON PEDROS RESULTS
+        print "Number NaN after merge", merged.isnull().any(axis=1).sum()
+        merged.fillna(0,inplace=True)
 
     ##Convert types prior to returning data
     for col in merged.columns:
@@ -152,6 +181,9 @@ def merge_taxi_data(simulated_data = True):
             merged[col] = merged[col].astype(float)
         else:
             merged[col] = merged[col].astype(int)
+
+    ##Pad the month in the year_month:
+    merged['year_month'] = merged['year_month'].apply(add_zero_to_month)
 
     return merged
 
@@ -164,10 +196,10 @@ def nest_dict_from_df(frame):
         return_dict[row['nta_code']][row['year_month']] = values_for_inner_dict
     return return_dict
 
-def save_merged_data(simulated_data = True):
+def save_merged_data(filepathlist, simulated_data = True):
         ##Reset index to year_month and nta_code
 
-    merged =  merge_taxi_data(simulated_data)
+    merged =  merge_taxi_data(filepathlist, simulated_data)
 
     merged_dict = nest_dict_from_df(merged)
 
@@ -176,4 +208,6 @@ def save_merged_data(simulated_data = True):
 
 
 if __name__ == '__main__':
-    save_merged_data(simulated_data = True)
+    years = range(2010,2014)
+    filepathlist = ['./../data/taxi_from_map_reduce/{}-taxi-data.txt'.format(year) for year in years]
+    save_merged_data(filepathlist, simulated_data = False)
