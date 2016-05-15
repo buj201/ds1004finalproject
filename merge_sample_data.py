@@ -143,7 +143,7 @@ def add_zero_to_month(year_month):
 
 
 def read_output_from_MR(filepath):
-    df = pd.read_csv(filepath, sep=r'[,\t]', header=None, names=['year_month', 'nta_code', 'count','trip_type'])
+    df = pd.read_csv(filepath, sep=r'[,\t]', header=None, names=['year_month', 'nta_code', 'count','trip_type'],engine='python')
 
     df['year_month'] = df['year_month'].apply(strip_zero_from_month)
 
@@ -152,6 +152,16 @@ def read_output_from_MR(filepath):
     pivoted.reset_index(inplace=True)
     return pivoted
 
+
+def get_actual_taxi_data(filepathlist):
+    first_year = True
+    for filepath in filepathlist:
+        if first_year:
+            taxi_data = read_output_from_MR(filepath)
+            first_year = False
+        else:
+            taxi_data = taxi_data.append(read_output_from_MR(filepath))
+    return taxi_data
 
 def append_simulated_taxi_data(merged):
 
@@ -173,18 +183,24 @@ def merge_taxi_data(filepathlist, simulated_data = True):
         print "Number NaN after merge", merged.isnull().any(axis=1).sum()
         merged.fillna(0,inplace=True)
 
+    ###Get NYC averages
+
+    nyc_means = merged.groupby('year_month').mean()
+    nyc_means['nta_code'] = 'NYC_avg'
+    nyc_means['nta_string'] = 'NYC average'
+    nyc_means.reset_index(inplace=True)
+    merged = merged.append(nyc_means)
+
     ##Convert types prior to returning data
     for col in merged.columns:
         if col in ['year_month', 'nta_code', 'nta_string']:
             merged[col] = merged[col].astype(str)
-        elif col == 'dollar_per_unit':
-            merged[col] = merged[col].astype(float)
         else:
-            merged[col] = merged[col].astype(int)
+            merged[col] = merged[col].astype(float)
 
     ##Pad the month in the year_month:
     merged['year_month'] = merged['year_month'].apply(add_zero_to_month)
-
+    merged.to_csv('./../data/view_data_flat.csv', index=False)
     return merged
 
 def nest_dict_from_df(frame):
@@ -193,6 +209,9 @@ def nest_dict_from_df(frame):
         if row['nta_code'] not in return_dict:
             return_dict[row['nta_code']] = {}
         values_for_inner_dict = row.drop(['nta_code','year_month']).to_dict()
+        if row['nta_code'] != 'NYC_avg':
+            for key in [x for x in values_for_inner_dict.keys() if x not in ['nta_code','year_month','dollar_per_unit','nta_string']]:
+                values_for_inner_dict[key] = int(values_for_inner_dict[key])
         return_dict[row['nta_code']][row['year_month']] = values_for_inner_dict
     return return_dict
 
@@ -205,9 +224,3 @@ def save_merged_data(filepathlist, simulated_data = True):
 
     with open('./../data/final_nta_month_data.json', 'w') as output:
         json.dump(merged_dict, output)
-
-
-if __name__ == '__main__':
-    years = range(2010,2014)
-    filepathlist = ['./../data/taxi_from_map_reduce/{}-taxi-data.txt'.format(year) for year in years]
-    save_merged_data(filepathlist, simulated_data = False)
